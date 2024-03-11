@@ -587,6 +587,10 @@ proc worksheet_write_formula*(worksheet: ptr lxw_worksheet; row: lxw_row_t;
                              col: lxw_col_t; formula: cstring;
                              format: ptr lxw_format): lxw_error {.stdcall,
     importc: "worksheet_write_formula", dynlib: dynlibWorksheet.}
+proc worksheet_write_formula_str*(worksheet: ptr lxw_worksheet; row: lxw_row_t;
+                             col: lxw_col_t; formula: cstring;
+                             format: ptr lxw_format, result: cstring): lxw_error {.stdcall,
+    importc: "worksheet_write_formula_str", dynlib: dynlibWorksheet.}
 proc worksheet_write_array_formula*(worksheet: ptr lxw_worksheet;
                                    first_row: lxw_row_t; first_col: lxw_col_t;
                                    last_row: lxw_row_t; last_col: lxw_col_t;
