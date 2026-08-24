@@ -26,14 +26,21 @@ $ nimble install
 ```
 
 ## Dynamic XLSX library
-The libxlsxwriter shared library is required before installing this package.
+The libxlsxwriter shared library is required to build and run programs using
+this package.
 This binding is tested against libxlsxwriter 1.2.4 on Linux and supports its
 versioned `libxlsxwriter.so.11` library name as well as the unversioned
 development symlink.
 
 Install libxlsxwriter using your system package manager, or follow the official
 [build and installation instructions](https://libxlsxwriter.github.io/getting_started.html).
-The repository no longer bundles a platform-specific shared library.
+The official guide includes instructions for building and installing the shared
+library from source when version 1.2.4 is not available from your package
+manager.
+
+The repository no longer bundles a prebuilt shared library. A single `.so`
+would only support the operating system and CPU architecture it was built for
+and could fall out of sync with the binding's target libxlsxwriter version.
 
 # Want more XLSX?
 
