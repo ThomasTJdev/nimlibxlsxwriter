@@ -3,7 +3,7 @@ when defined(Windows):
   const dynlibHashtable = "libxlsxwriter.dll"
 
 when defined(Linux):
-  const dynlibHashtable = "libxlsxwriter.so"
+  const dynlibHashtable = "libxlsxwriter.so(|.11)"
 
 when defined(MacOSX):
   const dynlibHashtable = "libxlsxwriter.dylib"

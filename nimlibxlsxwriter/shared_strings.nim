@@ -3,7 +3,7 @@ when defined(Windows):
   const dynlibSharedstrings = "libxlsxwriter.dll"
 
 when defined(Linux):
-  const dynlibSharedstrings = "libxlsxwriter.so"
+  const dynlibSharedstrings = "libxlsxwriter.so(|.11)"
 
 when defined(MacOSX):
   const dynlibSharedstrings = "libxlsxwriter.dylib"

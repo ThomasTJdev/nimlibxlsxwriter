@@ -19,6 +19,9 @@ task setup, "Check OS":
 
 task test, "Run tests":
   withDir("tests"):
+    exec "nim c -r test_abi.nim"
+    exec "nim c -r test_workbook.nim"
+    exec "python3 check_xlsx.py generated-test.xlsx"
     exec "nim c -r anatomy.nim"
     exec "nim c -r array_formula.nim"
     exec "nim c -r autofilter.nim"

@@ -3,7 +3,7 @@ when defined(Windows):
   const dynlibRelationships = "libxlsxwriter.dll"
 
 when defined(Linux):
-  const dynlibRelationships = "libxlsxwriter.so"
+  const dynlibRelationships = "libxlsxwriter.so(|.11)"
 
 when defined(MacOSX):
   const dynlibRelationships = "libxlsxwriter.dylib"

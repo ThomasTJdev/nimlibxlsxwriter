@@ -1,7 +1,8 @@
 /*
  * libxlsxwriter
  *
- * Copyright 2014-2020, John McNamara, jmcnamara@cpan.org. See LICENSE.txt.
+ * SPDX-License-Identifier: BSD-2-Clause
+ * Copyright 2014-2026, John McNamara, jmcnamara@cpan.org.
  */
 
 /**
@@ -182,34 +183,34 @@ typedef struct lxw_defined_name {
  */
 typedef struct lxw_doc_properties {
     /** The title of the Excel Document. */
-    char *title;
+    const char *title;
 
     /** The subject of the Excel Document. */
-    char *subject;
+    const char *subject;
 
     /** The author of the Excel Document. */
-    char *author;
+    const char *author;
 
     /** The manager field of the Excel Document. */
-    char *manager;
+    const char *manager;
 
     /** The company field of the Excel Document. */
-    char *company;
+    const char *company;
 
     /** The category of the Excel Document. */
-    char *category;
+    const char *category;
 
     /** The keywords of the Excel Document. */
-    char *keywords;
+    const char *keywords;
 
     /** The comment field of the Excel Document. */
-    char *comments;
+    const char *comments;
 
     /** The status of the Excel Document. */
-    char *status;
+    const char *status;
 
     /** The hyperlink base URL of the Excel Document. */
-    char *hyperlink_base;
+    const char *hyperlink_base;
 
     /** The file creation date/time shown in Excel. This defaults to the
      * current time and date if set to 0. If you wish to create files that are
@@ -229,7 +230,7 @@ typedef struct lxw_doc_properties {
  *
  * - `constant_memory`: This option reduces the amount of data stored in
  *   memory so that large files can be written efficiently. This option is off
- *   by default. See the note below for limitations when this mode is on.
+ *   by default. See the notes below for limitations when this mode is on.
  *
  * - `tmpdir`: libxlsxwriter stores workbook data in temporary files prior to
  *   assembling the final XLSX file. The temporary files are created in the
@@ -243,24 +244,43 @@ typedef struct lxw_doc_properties {
  *   for more information. This option is off by default.
  *
  *   [zip64_wiki]: https://en.wikipedia.org/wiki/Zip_(file_format)#ZIP64
+
+ * - `output_buffer`: Output to a buffer instead of a file. The buffer must be
+ *   freed manually by calling free(). This option can only be used if filename
+ *   is NULL.
  *
- * @note In `constant_memory` mode a row of data is written and then discarded
- * when a cell in a new row is added via one of the `worksheet_write_*()`
- * functions. Therefore, once this option is active, data should be written in
- * sequential row order. For this reason the `worksheet_merge_range()` doesn't
- * work in this mode. See also @ref ww_mem_constant.
+ * - `output_buffer_size`: Used with output_buffer to get the size of the
+ *   created buffer. This option can only be used if filename is NULL.
  *
+ * @note In `constant_memory` mode each row of in-memory data is written to
+ * disk and then freed when a new row is started via one of the
+ * `worksheet_write_*()` functions. Therefore, once this option is active data
+ * should be written in sequential row by row order. For this reason
+ * `worksheet_merge_range()` and some other row based functionality doesn't
+ * work in this mode. See @ref ww_mem_constant for more details.
+ *
+ * @note Also, in `constant_memory` mode the library uses temp file storage
+ * for worksheet data. This can lead to an issue on OSes that map the `/tmp`
+ * directory into memory since it is possible to consume the "system" memory
+ * even though the "process" memory remains constant. In these cases you
+ * should use an alternative temp file location by using the `tmpdir` option
+ * shown above. See @ref ww_mem_temp for more details.
  */
 typedef struct lxw_workbook_options {
     /** Optimize the workbook to use constant memory for worksheets. */
     uint8_t constant_memory;
 
     /** Directory to use for the temporary files created by libxlsxwriter. */
-    char *tmpdir;
+    const char *tmpdir;
 
     /** Allow ZIP64 extensions when creating the xlsx file zip container. */
     uint8_t use_zip64;
 
+    /** Output buffer to use instead of writing to a file */
+    const char **output_buffer;
+
+    /** Used with output_buffer to get the size of the created buffer */
+    size_t *output_buffer_size;
 } lxw_workbook_options;
 
 /**
@@ -279,6 +299,9 @@ typedef struct lxw_workbook {
     struct lxw_worksheet_names *worksheet_names;
     struct lxw_chartsheet_names *chartsheet_names;
     struct lxw_image_md5s *image_md5s;
+    struct lxw_image_md5s *embedded_image_md5s;
+    struct lxw_image_md5s *header_image_md5s;
+    struct lxw_image_md5s *background_md5s;
     struct lxw_charts *charts;
     struct lxw_charts *ordered_charts;
     struct lxw_formats *formats;
@@ -296,26 +319,40 @@ typedef struct lxw_workbook {
     uint16_t first_sheet;
     uint16_t active_sheet;
     uint16_t num_xf_formats;
+    uint16_t num_dxf_formats;
     uint16_t num_format_count;
     uint16_t drawing_count;
     uint16_t comment_count;
+    uint32_t num_embedded_images;
+    uint16_t window_width;
+    uint16_t window_height;
 
     uint16_t font_count;
     uint16_t border_count;
     uint16_t fill_count;
     uint8_t optimize;
     uint16_t max_url_length;
+    uint8_t read_only;
 
     uint8_t has_png;
     uint8_t has_jpeg;
     uint8_t has_bmp;
+    uint8_t has_gif;
     uint8_t has_vml;
     uint8_t has_comments;
+    uint8_t has_metadata;
+    uint8_t has_embedded_images;
+    uint8_t has_dynamic_functions;
+    uint8_t has_embedded_image_descriptions;
 
     lxw_hash_table *used_xf_formats;
+    lxw_hash_table *used_dxf_formats;
 
     char *vba_project;
+    char *vba_project_signature;
     char *vba_codename;
+
+    uint8_t use_1904_epoch;
 
     lxw_format *default_url_format;
 
@@ -362,7 +399,9 @@ lxw_workbook *workbook_new(const char *filename);
  * @code
  *    lxw_workbook_options options = {.constant_memory = LXW_TRUE,
  *                                    .tmpdir = "C:\\Temp",
- *                                    .use_zip64 = LXW_FALSE};
+ *                                    .use_zip64 = LXW_FALSE,
+ *                                    .output_buffer = NULL,
+ *                                    .output_buffer_size = NULL};
  *
  *    lxw_workbook  *workbook  = workbook_new_opt("filename.xlsx", &options);
  * @endcode
@@ -386,12 +425,26 @@ lxw_workbook *workbook_new(const char *filename);
  *
  *   [zip64_wiki]: https://en.wikipedia.org/wiki/Zip_(file_format)#ZIP64
  *
- * @note In `constant_memory` mode a row of data is written and then discarded
- * when a cell in a new row is added via one of the `worksheet_write_*()`
- * functions. Therefore, once this option is active, data should be written in
- * sequential row order. For this reason the `worksheet_merge_range()` doesn't
- * work in this mode. See also @ref ww_mem_constant.
+ * - `output_buffer`: Output to a memory buffer instead of a file. The buffer
+ *   must be freed manually by calling `free()`. This option can only be used if
+ *   filename is NULL.
  *
+ * - `output_buffer_size`: Used with output_buffer to get the size of the
+ *   created buffer. This option can only be used if filename is `NULL`.
+ *
+ * @note In `constant_memory` mode each row of in-memory data is written to
+ * disk and then freed when a new row is started via one of the
+ * `worksheet_write_*()` functions. Therefore, once this option is active data
+ * should be written in sequential row by row order. For this reason
+ * `worksheet_merge_range()` and some other row based functionality doesn't
+ * work in this mode. See @ref ww_mem_constant for more details.
+ *
+ * @note Also, in `constant_memory` mode the library uses temp file storage
+ * for worksheet data. This can lead to an issue on OSes that map the `/tmp`
+ * directory into memory since it is possible to consume the "system" memory
+ * even though the "process" memory remains constant. In these cases you
+ * should use an alternative temp file location by using the `tmpdir` option
+ * shown above. See @ref ww_mem_temp for more details.
  */
 lxw_workbook *workbook_new_opt(const char *filename,
                                lxw_workbook_options *options);
@@ -425,6 +478,7 @@ lxw_workbook *workbook_new_opt(const char *filename,
  *
  * The worksheet name must be a valid Excel worksheet name, i.e:
  *
+ * - The name cannot be blank.
  * - The name is less than or equal to 31 UTF-8 characters.
  * - The name doesn't contain any of the characters: ` [ ] : * ? / \ `
  * - The name doesn't start or end with an apostrophe.
@@ -467,6 +521,7 @@ lxw_worksheet *workbook_add_worksheet(lxw_workbook *workbook,
  *
  * The chartsheet name must be a valid Excel worksheet name, i.e.:
  *
+ * - The name cannot be blank.
  * - The name is less than or equal to 31 UTF-8 characters.
  * - The name doesn't contain any of the characters: ` [ ] : * ? / \ `
  * - The name doesn't start or end with an apostrophe.
@@ -557,6 +612,8 @@ lxw_format *workbook_add_format(lxw_workbook *workbook);
  * | #LXW_CHART_COLUMN_STACKED_PERCENT        | Column chart - percentage stacked.     |
  * | #LXW_CHART_DOUGHNUT                      | Doughnut chart.                        |
  * | #LXW_CHART_LINE                          | Line chart.                            |
+ * | #LXW_CHART_LINE_STACKED                  | Line chart - stacked.                  |
+ * | #LXW_CHART_LINE_STACKED_PERCENT          | Line chart - percentage stacked.       |
  * | #LXW_CHART_PIE                           | Pie chart.                             |
  * | #LXW_CHART_SCATTER                       | Scatter chart.                         |
  * | #LXW_CHART_SCATTER_STRAIGHT              | Scatter chart - straight.              |
@@ -808,7 +865,7 @@ lxw_error workbook_set_custom_property_datetime(lxw_workbook *workbook,
  * @endcode
  *
  * The rules for names in Excel are explained in the
- * [Microsoft Office documentation](http://office.microsoft.com/en-001/excel-help/define-and-use-names-in-formulas-HA010147120.aspx).
+ * [Microsoft Office documentation](https://support.microsoft.com/en-us/office/define-and-use-names-in-formulas-4d0f13ac-53b7-422e-afd2-abd7ff379c64).
  *
  */
 lxw_error workbook_define_name(lxw_workbook *workbook, const char *name,
@@ -881,6 +938,7 @@ lxw_chartsheet *workbook_get_chartsheet_by_name(lxw_workbook *workbook,
  * This function is used to validate a worksheet or chartsheet name according
  * to the rules used by Excel:
  *
+ * - The name cannot be blank.
  * - The name is less than or equal to 31 UTF-8 characters.
  * - The name doesn't contain any of the characters: ` [ ] : * ? / \ `
  * - The name doesn't start or end with an apostrophe.
@@ -922,7 +980,7 @@ lxw_error workbook_validate_sheet_name(lxw_workbook *workbook,
  *     workbook_add_vba_project(workbook, "vbaProject.bin");
  * @endcode
  *
- * Only one `vbaProject.bin file` can be added per workbook. The name doesn't
+ * Only one `vbaProject.bin` file can be added per workbook. The name doesn't
  * have to be `vbaProject.bin`. Any suitable path/name for an existing VBA bin
  * file will do.
  *
@@ -940,6 +998,35 @@ lxw_error workbook_validate_sheet_name(lxw_workbook *workbook,
  */
 lxw_error workbook_add_vba_project(lxw_workbook *workbook,
                                    const char *filename);
+
+/**
+ * @brief Add a vbaProject binary and a vbaProjectSignature binary to the Excel
+ * workbook.
+ *
+ * @param workbook    Pointer to a lxw_workbook instance.
+ * @param vba_project The path/filename of the vbaProject.bin file.
+ * @param signature   The path/filename of the vbaProjectSignature.bin file.
+ *
+ * The `%workbook_add_signed_vba_project()` function can be used to add digitally
+ * signed macros or functions to a workbook. The function adds a binary VBA project
+ * file and a binary VBA project signature file that have been extracted from an
+ * existing Excel xlsm file with digitally signed macros:
+ *
+ * @code
+ *     workbook_add_signed_vba_project(workbook, "vbaProject.bin", "vbaProjectSignature.bin");
+ * @endcode
+ *
+ * Only one `vbaProject.bin` file can be added per workbook. The name doesn't
+ * have to be `vbaProject.bin`. Any suitable path/name for an existing VBA bin
+ * file will do. The same applies for `vbaProjectSignature.bin`.
+ *
+ * See also @ref working_with_macros
+ *
+ * @return A #lxw_error.
+ */
+lxw_error workbook_add_signed_vba_project(lxw_workbook *workbook,
+                                          const char *vba_project,
+                                          const char *signature);
 
 /**
  * @brief Set the VBA name for the workbook.
@@ -964,6 +1051,68 @@ lxw_error workbook_add_vba_project(lxw_workbook *workbook,
  * @return A #lxw_error.
  */
 lxw_error workbook_set_vba_name(lxw_workbook *workbook, const char *name);
+
+/**
+ * @brief Add a recommendation to open the file in "read-only" mode.
+ *
+ * @param workbook Pointer to a lxw_workbook instance.
+ *
+ * This function can be used to set the Excel "Read-only Recommended" option
+ * that is available when saving a file. This presents the user of the file
+ * with an option to open it in "read-only" mode. This means that any changes
+ * to the file can't be saved back to the same file and must be saved to a new
+ * file. It can be set as follows:
+ *
+ * @code
+ *     workbook_read_only_recommended(workbook);
+ * @endcode
+ *
+ * Which will raise a dialog like the following when opening the file:
+ *
+ * @image html read_only.png
+ */
+void workbook_read_only_recommended(lxw_workbook *workbook);
+
+/**
+ * @brief Set the workbook to use the 1904 epoch.
+ *
+ * @param workbook Pointer to a lxw_workbook instance.
+ *
+ * The `%workbook_use_1904_epoch()` function can be used to set the workbook to
+ * use the 1904 epoch instead of the default 1900 epoch.
+ *
+ * Excel supports two date epochs. The first based on 1900-01-01 is the default
+ * for all Windows versions of Excel and for recent versions of Excel for macOS.
+ * Older versions of Excel for macOS used a 1904-01-01 epoch. The 1904 epoch can
+ * be set for compatibility with older versions of Excel or to work around the
+ * Excel limitation of not being able to handle negative times.
+ *
+ * This function should be called before `worksheet_add_worksheet()`.
+ *
+ * @code
+ *     workbook_use_1904_epoch(workbook);
+ * @endcode
+ *
+ */
+void workbook_use_1904_epoch(lxw_workbook *workbook);
+
+/**
+ * @brief Set the size of a workbook window.
+ *
+ * @param workbook Pointer to a lxw_workbook instance.
+ * @param width    Width of the window in pixels.
+ * @param height   Height of the window in pixels.
+ *
+ * Set the size of a workbook window. This is generally only useful on macOS
+ * since Microsoft Windows uses the window size from the last time an Excel file
+ * was opened/saved. The default size is 1073 x 644 pixels.
+ *
+ * The resulting pixel sizes may not exactly match the target screen and
+ * resolution since it is based on the original Excel for Windows sizes. Some
+ * trial and error may be required to get an exact size.
+ */
+void workbook_set_size(lxw_workbook *workbook,
+                       uint16_t width, uint16_t height);
 
 void lxw_workbook_free(lxw_workbook *workbook);
 void lxw_workbook_assemble_xml_file(lxw_workbook *workbook);

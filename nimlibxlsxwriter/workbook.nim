@@ -4,13 +4,13 @@ import chart
 import shared_strings
 import hash_table
 import common
-import times
+import posix
 import format
 when defined(Windows):
   const dynlibWorkbook = "libxlsxwriter.dll"
 
 when defined(Linux):
-  const dynlibWorkbook = "libxlsxwriter.so"
+  const dynlibWorkbook = "libxlsxwriter.so(|.11)"
 
 when defined(MacOSX):
   const dynlibWorkbook = "libxlsxwriter.dylib"
@@ -56,7 +56,7 @@ type
     tqh_first*: ptr lxw_defined_name
     tqh_last*: ptr ptr lxw_defined_name
 
-  INNER_C_UNION_temp_14* {.bycopy.} = object {.union.}
+  INNER_C_UNION_temp_14* {.bycopy, union.} = object
     worksheet*: ptr lxw_worksheet
     chartsheet*: ptr lxw_chartsheet
 
@@ -126,12 +126,14 @@ type
     comments*: cstring
     status*: cstring
     hyperlink_base*: cstring
-    created*: Time
+    created*: posix.Time
 
   lxw_workbook_options* {.bycopy.} = object
     constant_memory*: uint8
     tmpdir*: cstring
     use_zip64*: uint8
+    output_buffer*: ptr cstring
+    output_buffer_size*: ptr csize_t
 
   lxw_workbook* {.bycopy.} = object
     file*: ptr FILE

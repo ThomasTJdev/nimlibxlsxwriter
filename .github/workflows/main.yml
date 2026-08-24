@@ -2,29 +2,42 @@ name: Build XLSX
 
 on:
   push:
-    branches: [ master ]
   pull_request:
-    branches: [ master ]
+
+permissions:
+  contents: read
+
+env:
+  LIBXLSXWRITER_VERSION: 1.2.4
 
 jobs:
   build:
-    runs-on: ${{ matrix.os }}
+    runs-on: ubuntu-latest
     strategy:
+      fail-fast: false
       matrix:
-        os:
-          - ubuntu-latest
-        version:
+        nim-version:
+          - 1.6.20
           - stable
 
     steps:
-    - uses: actions/checkout@v1
-    - uses: jiro4989/setup-nim-action@master
-      with:
-        nim-version: ${{ matrix.version }}
+    - uses: actions/checkout@v4
 
-    - name: copy libxlsxwriter.so to /usr/lib
+    - uses: jiro4989/setup-nim-action@v2
+      with:
+        nim-version: ${{ matrix.nim-version }}
+
+    - name: Build libxlsxwriter from source
       run: |
-        sudo cp nimlibxlsxwriter/include/libxlsxwriter.so /usr/lib/libxlsxwriter.so
+        sudo apt-get update
+        sudo apt-get install -y build-essential zlib1g-dev
+        curl -L --fail --retry 3 \
+          -o "/tmp/libxlsxwriter-${LIBXLSXWRITER_VERSION}.tar.gz" \
+          "https://github.com/jmcnamara/libxlsxwriter/archive/refs/tags/v${LIBXLSXWRITER_VERSION}.tar.gz"
+        tar -xzf "/tmp/libxlsxwriter-${LIBXLSXWRITER_VERSION}.tar.gz" -C /tmp
+        make -C "/tmp/libxlsxwriter-${LIBXLSXWRITER_VERSION}" -j2
+        sudo make -C "/tmp/libxlsxwriter-${LIBXLSXWRITER_VERSION}" install
+        sudo ldconfig
 
     - name: Print Nim version
       run: nim -v
@@ -32,11 +45,5 @@ jobs:
     - name: Print Nimble version
       run: nimble -v
 
-    - name: Nimble Refresh
-      run: nimble -y refresh
-
-    - name: Nimble Install dependencies
-      run: nimble -y install --depsOnly
-
-    - name: Build binaries
+    - name: Run tests
       run: nimble test

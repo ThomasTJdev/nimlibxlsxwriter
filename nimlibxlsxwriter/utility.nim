@@ -4,7 +4,7 @@ when defined(Windows):
   const dynlibUtility = "libxlsxwriter.dll"
 
 when defined(Linux):
-  const dynlibUtility = "libxlsxwriter.so"
+  const dynlibUtility = "libxlsxwriter.so(|.11)"
 
 when defined(MacOSX):
   const dynlibUtility = "libxlsxwriter.dylib"

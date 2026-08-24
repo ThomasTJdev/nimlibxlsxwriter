@@ -8,7 +8,7 @@ when defined(Windows):
   const dynlibCommon = "libxlsxwriter.dll"
 
 when defined(Linux):
-  const dynlibCommon = "libxlsxwriter.so"
+  const dynlibCommon = "libxlsxwriter.so(|.11)"
 
 when defined(MacOSX):
   const dynlibCommon = "libxlsxwriter.dylib"
@@ -35,7 +35,7 @@ type
   lxw_row_t* = uint32
   lxw_col_t* = uint16
   lxw_boolean* {.size: sizeof(cint).} = enum
-    LXW_FALSE, LXW_TRUE
+    LXW_FALSE, LXW_TRUE, LXW_EXPLICIT_FALSE
 
 
 type
@@ -46,6 +46,7 @@ type
     LXW_ERROR_ZIP_BAD_ZIP_FILE, LXW_ERROR_ZIP_INTERNAL_ERROR,
     LXW_ERROR_ZIP_FILE_ADD, LXW_ERROR_ZIP_CLOSE, LXW_ERROR_FEATURE_NOT_SUPPORTED,
     LXW_ERROR_NULL_PARAMETER_IGNORED, LXW_ERROR_PARAMETER_VALIDATION,
+    LXW_ERROR_PARAMETER_IS_EMPTY, LXW_ERROR_DATETIME_VALIDATION,
     LXW_ERROR_SHEETNAME_LENGTH_EXCEEDED, LXW_ERROR_INVALID_SHEETNAME_CHARACTER,
     LXW_ERROR_SHEETNAME_START_END_APOSTROPHE, LXW_ERROR_SHEETNAME_ALREADY_USED,
     LXW_ERROR_32_STRING_LENGTH_EXCEEDED, LXW_ERROR_128_STRING_LENGTH_EXCEEDED,
@@ -87,7 +88,7 @@ type
   INNER_C_STRUCT_temp_69* {.bycopy.} = object
     stqe_next*: ptr lxw_tuple
 
-  INNER_C_UNION_temp_75* {.bycopy.} = object {.union.}
+  INNER_C_UNION_temp_75* {.bycopy, union.} = object
     string*: cstring
     number*: cdouble
     integer*: int32
@@ -107,4 +108,3 @@ type
     name*: cstring
     u*: INNER_C_UNION_temp_75
     list_pointers*: INNER_C_STRUCT_temp_81
-

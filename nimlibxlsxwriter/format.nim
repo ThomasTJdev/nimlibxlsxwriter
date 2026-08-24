@@ -3,7 +3,7 @@ when defined(Windows):
   const dynlibFormat = "libxlsxwriter.dll"
 
 when defined(Linux):
-  const dynlibFormat = "libxlsxwriter.so"
+  const dynlibFormat = "libxlsxwriter.so(|.11)"
 
 when defined(MacOSX):
   const dynlibFormat = "libxlsxwriter.dylib"
