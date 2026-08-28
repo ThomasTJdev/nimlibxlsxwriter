@@ -24,7 +24,7 @@ when defined(Windows):
   const dynlibXlsxwriter = "libxlsxwriter.dll"
 
 when defined(Linux):
-  const dynlibXlsxwriter = "libxlsxwriter.so"
+  const dynlibXlsxwriter = "libxlsxwriter.so(|.11)"
 
 when defined(MacOSX):
   const dynlibXlsxwriter = "libxlsxwriter.dylib"
@@ -38,4 +38,5 @@ const sourcePath = currentSourcePath().splitPath.head
 {.passC: "-I\"" & sourcePath & "/include\"".}
 {.passC: "-I\"" & sourcePath & "/include/xlsxwriter\"".}
 const
-  LXW_VERSION_ID* = 94
+  LXW_VERSION* = "1.2.4"
+  LXW_VERSION_ID* = 124

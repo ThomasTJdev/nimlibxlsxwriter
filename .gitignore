@@ -2,3 +2,5 @@ tests/*
 
 !tests/*.nim
 !tests/config.nims
+!tests/abi_probe.c
+!tests/check_xlsx.py

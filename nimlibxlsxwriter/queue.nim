@@ -2,7 +2,7 @@ when defined(Windows):
   const dynlibQueue = "libxlsxwriter.dll"
 
 when defined(Linux):
-  const dynlibQueue = "libxlsxwriter.so"
+  const dynlibQueue = "libxlsxwriter.so(|.11)"
 
 when defined(MacOSX):
   const dynlibQueue = "libxlsxwriter.dylib"

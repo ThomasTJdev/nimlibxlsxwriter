@@ -1,7 +1,8 @@
 /*
  * libxlsxwriter
  *
- * Copyright 2014-2020, John McNamara, jmcnamara@cpan.org. See LICENSE.txt.
+ * SPDX-License-Identifier: BSD-2-Clause
+ * Copyright 2014-2026, John McNamara, jmcnamara@cpan.org.
  *
  * chart - A libxlsxwriter library for creating Excel XLSX chart files.
  *
@@ -123,6 +124,12 @@ typedef enum lxw_chart_type {
 
     /** Line chart. */
     LXW_CHART_LINE,
+
+    /** Line chart - stacked. */
+    LXW_CHART_LINE_STACKED,
+
+    /** Line chart - percentage stacked. */
+    LXW_CHART_LINE_STACKED_PERCENT,
 
     /** Pie chart. */
     LXW_CHART_PIE,
@@ -693,7 +700,7 @@ typedef struct lxw_chart_pattern {
 typedef struct lxw_chart_font {
 
     /** The chart font name, such as "Arial" or "Calibri". */
-    char *name;
+    const char *name;
 
     /** The chart font size. The default is 11. */
     double size;
@@ -707,9 +714,12 @@ typedef struct lxw_chart_font {
     /** The chart font underline property. Set to 0 or 1. */
     uint8_t underline;
 
-    /** The chart font rotation property. Range: -90 to 90, and 270-271.
-     *  The angle 270 gives a stacked (top to bottom) alignment.
-     *  The angle 271 gives a stacked alignment for East Asian fonts.
+    /** The chart font rotation property. Range: -90 to 90, and 270, 271 and 360:
+     *
+     *  - The angles -90 to 90 are the normal range shown in the Excel user interface.
+     *  - The angle 270 gives a stacked (top to bottom) alignment.
+     *  - The angle 271 gives a stacked alignment for East Asian fonts.
+     *  - The angle 360 gives an explicit angle of 0 to override the y axis default.
      * */
     int32_t rotation;
 
@@ -727,6 +737,70 @@ typedef struct lxw_chart_font {
 
 } lxw_chart_font;
 
+/**
+ * @brief Struct to represent Excel chart element layout dimensions.
+ *
+ * Excel supports manual positioning of elements such as the chart axis labels,
+ * the chart legend, the chart plot area and the chart title. The
+ * `lxw_chart_layout` struct represents the layout dimension for these elements.
+ *
+ * The layout units used by Excel are relative units expressed as a percentage
+ * of the chart dimensions and are double values in the range `0.0 < x <= 1.0`.
+ * Excel calculates these dimensions as shown below:
+ *
+ * @image html chart_layout.png
+ *
+ * With reference to the above figure the layout units are calculated as
+ * follows:
+ *
+ * ```text
+ *     x = a / W
+ *     y = b / H
+ * ```
+ *
+ * These units are cumbersome and can vary depending on other elements in the
+ * chart such as text lengths. However, these are the units that are required by
+ * Excel to allow relative positioning. Some trial and error is generally
+ * required.
+ *
+ * For the chart `chart_plotarea_set_layout()` and `chart_legend_set_layout()`
+ * functions you can also set the width and height based on the following
+ * calculation:
+ *
+ * ```text
+ *     width  = w / W
+ *     height = h / H
+ * ```
+ *
+ * For other text based objects the width and height are changed by the font
+ * dimensions.
+ *
+ * The chart functions that support `lxw_chart_layout` are:
+ *
+ * - `chart_title_set_layout()`
+ * - `chart_legend_set_layout()`
+ * - `chart_plotarea_set_layout()`
+ * - `chart_axis_set_name_layout()`
+ *
+ */
+typedef struct lxw_chart_layout {
+
+    /** The x offset in the range `0.0 < x <= 1.0` */
+    double x;
+
+    /** The y offset in the range `0.0 < y <= 1.0` */
+    double y;
+
+    /** The width of the plotarea or legend in the range `0.0 < x <= 1.0` */
+    double width;
+
+    /** The height of the plotarea or legend in the range `0.0 < x <= 1.0` */
+    double height;
+
+    uint8_t has_inner;
+
+} lxw_chart_layout;
+
 typedef struct lxw_chart_marker {
 
     uint8_t type;
@@ -741,6 +815,7 @@ typedef struct lxw_chart_legend {
 
     lxw_chart_font *font;
     uint8_t position;
+    lxw_chart_layout *layout;
 
 } lxw_chart_legend;
 
@@ -753,12 +828,14 @@ typedef struct lxw_chart_title {
     uint8_t off;
     uint8_t is_horizontal;
     uint8_t ignore_cache;
+    uint8_t has_overlay;
 
     /* We use a range to hold the title formula properties even though it
      * will only have 1 point in order to re-use similar functions.*/
     lxw_series_range *range;
 
     struct lxw_series_data_point data_point;
+    lxw_chart_layout *layout;
 
 } lxw_chart_title;
 
@@ -782,6 +859,54 @@ typedef struct lxw_chart_point {
 } lxw_chart_point;
 
 /**
+ * @brief Struct to represent an Excel chart data label.
+ *
+ * The lxw_chart_data_label struct is used to represent a data label in a
+ * chart series so that custom properties can be set for it.
+ */
+typedef struct lxw_chart_data_label {
+
+    /** The string or formula value for the data label. See
+     *  @ref chart_custom_labels. */
+    const char *value;
+
+    /** Option to hide/delete the data label from the chart series.
+     *  See @ref chart_custom_labels. */
+    uint8_t hide;
+
+    /** The font properties for the chart data label. @ref chart_fonts. */
+    lxw_chart_font *font;
+
+    /** The line/border for the chart data label. See @ref chart_lines. */
+    lxw_chart_line *line;
+
+    /** The fill for the chart data label. See @ref chart_fills. */
+    lxw_chart_fill *fill;
+
+    /** The pattern for the chart data label. See @ref chart_patterns.*/
+    lxw_chart_pattern *pattern;
+
+} lxw_chart_data_label;
+
+/* Internal version of lxw_chart_data_label with more metadata. */
+typedef struct lxw_chart_custom_label {
+
+    char *value;
+    uint8_t hide;
+    lxw_chart_font *font;
+    lxw_chart_line *line;
+    lxw_chart_fill *fill;
+    lxw_chart_pattern *pattern;
+
+    /* We use a range to hold the label formula properties even though it
+     * will only have 1 point in order to re-use similar functions.*/
+    lxw_series_range *range;
+
+    struct lxw_series_data_point data_point;
+
+} lxw_chart_custom_label;
+
+/**
  * @brief Define how blank values are displayed in a chart.
  */
 typedef enum lxw_chart_blank {
@@ -801,6 +926,13 @@ enum lxw_chart_position {
     LXW_CHART_AXIS_LEFT,
     LXW_CHART_AXIS_TOP,
     LXW_CHART_AXIS_BOTTOM
+};
+
+enum lxw_chart_layout_type {
+    LXW_CHART_LAYOUT_TITLE,
+    LXW_CHART_LAYOUT_LEGEND,
+    LXW_CHART_LAYOUT_PLOTAREA,
+    LXW_CHART_LAYOUT_AXIS_NAME
 };
 
 /**
@@ -910,7 +1042,9 @@ typedef struct lxw_chart_series {
     lxw_chart_pattern *pattern;
     lxw_chart_marker *marker;
     lxw_chart_point *points;
+    lxw_chart_custom_label *data_labels;
     uint16_t point_count;
+    uint16_t data_label_count;
 
     uint8_t smooth;
     uint8_t invert_if_negative;
@@ -928,6 +1062,9 @@ typedef struct lxw_chart_series {
     uint8_t default_label_position;
     char *label_num_format;
     lxw_chart_font *label_font;
+    lxw_chart_line *label_line;
+    lxw_chart_fill *label_fill;
+    lxw_chart_pattern *label_pattern;
 
     lxw_series_error_bars *x_error_bars;
     lxw_series_error_bars *y_error_bars;
@@ -1013,6 +1150,7 @@ typedef struct lxw_chart_axis {
     uint8_t display_units_visible;
 
     uint8_t has_crossing;
+    uint8_t crossing_min;
     uint8_t crossing_max;
     double crossing;
 
@@ -1032,8 +1170,8 @@ typedef struct lxw_chart {
     uint8_t subtype;
     uint16_t series_index;
 
-    void (*write_chart_type) (struct lxw_chart *);
-    void (*write_plot_area) (struct lxw_chart *);
+    void (*write_chart_type)(struct lxw_chart *);
+    void (*write_plot_area)(struct lxw_chart *);
 
     /**
      * A pointer to the chart x_axis object which can be used in functions
@@ -1085,8 +1223,10 @@ typedef struct lxw_chart {
     lxw_chart_line *chartarea_line;
     lxw_chart_fill *chartarea_fill;
     lxw_chart_pattern *chartarea_pattern;
+
     lxw_chart_line *plotarea_line;
     lxw_chart_fill *plotarea_fill;
+    lxw_chart_layout *plotarea_layout;
     lxw_chart_pattern *plotarea_pattern;
 
     uint8_t has_drop_lines;
@@ -1616,11 +1756,11 @@ void chart_series_set_smooth(lxw_chart_series *series, uint8_t smooth);
  *     chart_series_set_labels(series);
  * @endcode
  *
- * @image html chart_labels1.png
+ * @image html chart_data_labels1.png
  *
  * By default data labels are displayed in Excel with only the values shown:
  *
- * @image html chart_labels2.png
+ * @image html chart_data_labels2.png
  *
  * However, it is possible to configure other display options, as shown
  * in the functions below.
@@ -1645,13 +1785,70 @@ void chart_series_set_labels(lxw_chart_series *series);
  *     chart_series_set_labels_options(series, LXW_TRUE, LXW_TRUE, LXW_TRUE);
  * @endcode
  *
- * @image html chart_labels3.png
+ * @image html chart_data_labels3.png
  *
  * For more information see @ref chart_labels.
  */
 void chart_series_set_labels_options(lxw_chart_series *series,
                                      uint8_t show_name, uint8_t show_category,
                                      uint8_t show_value);
+
+/** @brief Set the properties for data labels in a series.
+*
+* @param series      A series object created via `chart_add_series()`.
+* @param data_labels An NULL terminated array of #lxw_chart_data_label pointers.
+*
+* @return A #lxw_error.
+*
+* The `%chart_series_set_labels_custom()` function is used to set the properties
+* for data labels in a series. It can also be used to delete individual data
+* labels in a series.
+*
+* In general properties are set for all the data labels in a chart
+* series. However, it is also possible to set properties for individual data
+* labels in a series using `%chart_series_set_labels_custom()`.
+*
+* The `%chart_series_set_labels_custom()` function takes a pointer to an array
+* of #lxw_chart_data_label pointers. The list should be `NULL` terminated:
+*
+* @code
+*     // Add the series data labels.
+*     chart_series_set_labels(series);
+*
+*     // Create some custom labels.
+*     lxw_chart_data_label data_label1 = {.value = "Jan"};
+*     lxw_chart_data_label data_label2 = {.value = "Feb"};
+*     lxw_chart_data_label data_label3 = {.value = "Mar"};
+*     lxw_chart_data_label data_label4 = {.value = "Apr"};
+*     lxw_chart_data_label data_label5 = {.value = "May"};
+*     lxw_chart_data_label data_label6 = {.value = "Jun"};
+*
+*     // Create an array of label pointers. NULL indicates the end of the array.
+*     lxw_chart_data_label *data_labels[] = {
+*         &data_label1,
+*         &data_label2,
+*         &data_label3,
+*         &data_label4,
+*         &data_label5,
+*         &data_label6,
+*         NULL
+*     };
+*
+*     // Set the custom labels.
+*     chart_series_set_labels_custom(series, data_labels);
+* @endcode
+*
+* @image html chart_data_labels18.png
+*
+* @note The array of #lxw_chart_point pointers should be NULL terminated as
+* shown in the example. Any #lxw_chart_data_label items set to a default
+* initialization or omitted from the list will be assigned the default data
+* label value.
+*
+* For more details see @ref chart_custom_labels.
+*/
+lxw_error chart_series_set_labels_custom(lxw_chart_series *series, lxw_chart_data_label
+                                         *data_labels[]);
 
 /**
  * @brief Set the separator for the data label captions.
@@ -1679,7 +1876,7 @@ void chart_series_set_labels_options(lxw_chart_series *series,
  *     chart_series_set_labels_separator(series, LXW_CHART_LABEL_SEPARATOR_NEWLINE);
  * @endcode
  *
- * @image html chart_labels4.png
+ * @image html chart_data_labels4.png
  *
  * For more information see @ref chart_labels.
  */
@@ -1700,7 +1897,7 @@ void chart_series_set_labels_separator(lxw_chart_series *series,
  *     chart_series_set_labels_position(series, LXW_CHART_LABEL_POSITION_ABOVE);
  * @endcode
  *
- * @image html chart_labels5.png
+ * @image html chart_data_labels5.png
  *
  * In Excel the allowable data label positions vary for different chart
  * types. The allowable, and default, positions are:
@@ -1760,7 +1957,7 @@ void chart_series_set_labels_leader_line(lxw_chart_series *series);
  *     chart_series_set_labels_legend(series);
  * @endcode
  *
- * @image html chart_labels6.png
+ * @image html chart_data_labels6.png
  *
  * For more information see @ref chart_labels.
  */
@@ -1781,7 +1978,7 @@ void chart_series_set_labels_legend(lxw_chart_series *series);
  *     chart_series_set_labels_percentage(series);
  * @endcode
  *
- * @image html chart_labels7.png
+ * @image html chart_data_labels7.png
  *
  * For more information see @ref chart_labels.
  */
@@ -1801,7 +1998,7 @@ void chart_series_set_labels_percentage(lxw_chart_series *series);
  *     chart_series_set_labels_num_format(series, "$0.00");
  * @endcode
  *
- * @image html chart_labels8.png
+ * @image html chart_data_labels8.png
  *
  * The number format is similar to the Worksheet Cell Format num_format,
  * see `format_set_num_format()`.
@@ -1828,13 +2025,74 @@ void chart_series_set_labels_num_format(lxw_chart_series *series,
  *     chart_series_set_labels_font(series, &font);
  * @endcode
  *
- * @image html chart_labels9.png
+ * @image html chart_data_labels9.png
  *
  * For more information see @ref chart_fonts and @ref chart_labels.
  *
  */
 void chart_series_set_labels_font(lxw_chart_series *series,
                                   lxw_chart_font *font);
+
+/**
+ * @brief Set the line properties for the data labels in a chart series.
+ *
+ * @param series A series object created via `chart_add_series()`.
+ * @param line   A #lxw_chart_line struct.
+ *
+ * Set the line/border properties of the data labels in a chart series:
+ *
+ * @code
+ *     lxw_chart_line line = {.color = LXW_COLOR_RED};
+ *     lxw_chart_fill fill = {.color = LXW_COLOR_YELLOW};
+ *
+ *     chart_series_set_labels_line(series, &line);
+ *     chart_series_set_labels_fill(series, &fill);
+ *
+ * @endcode
+ *
+ * @image html chart_data_labels24.png
+ *
+ * For more information see @ref chart_lines and @ref chart_labels.
+ */
+void chart_series_set_labels_line(lxw_chart_series *series,
+                                  lxw_chart_line *line);
+
+/**
+ * @brief Set the fill properties for the data labels in a chart series.
+ *
+ * @param series A series object created via `chart_add_series()`.
+ * @param fill   A #lxw_chart_fill struct.
+ *
+ * Set the fill properties of the data labels in a chart series:
+ *
+ * @code
+ *     lxw_chart_fill fill = {.color = LXW_COLOR_YELLOW};
+ *
+ *     chart_series_set_labels_fill(series, &fill);
+ * @endcode
+ *
+ * See the example and image above and also see @ref chart_fills and
+ * @ref chart_labels.
+ */
+void chart_series_set_labels_fill(lxw_chart_series *series,
+                                  lxw_chart_fill *fill);
+
+/**
+ * @brief Set the pattern properties for the data labels in a chart series.
+ *
+ * @param series  A series object created via `chart_add_series()`.
+ * @param pattern A #lxw_chart_pattern struct.
+ *
+ * Set the pattern properties of the data labels in a chart series:
+ *
+ * @code
+ *     chart_series_set_labels_pattern(series, &pattern);
+ * @endcode
+ *
+ * For more information see #lxw_chart_pattern_type and @ref chart_patterns.
+ */
+void chart_series_set_labels_pattern(lxw_chart_series *series,
+                                     lxw_chart_pattern *pattern);
 
 /**
  * @brief Turn on a trendline for a chart data series.
@@ -2322,6 +2580,18 @@ void chart_axis_set_name_range(lxw_chart_axis *axis, const char *sheetname,
                                lxw_row_t row, lxw_col_t col);
 
 /**
+ * @brief Set the manual position of the chart axis name.
+ *
+ * @param axis   A pointer to a chart #lxw_chart_axis object.
+ * @param layout A pointer to a chart #lxw_chart_layout struct.
+ *
+ * This function is used to simulate setting the manual position of a chart
+ * axis name. See @ref chart_layout for more information.
+ */
+void chart_axis_set_name_layout(lxw_chart_axis *axis,
+                                lxw_chart_layout *layout);
+
+/**
  * @brief Set the font properties for a chart axis name.
  *
  * @param axis A pointer to a chart #lxw_chart_axis object.
@@ -2522,6 +2792,26 @@ void chart_axis_set_crossing(lxw_chart_axis *axis, double value);
  *                 See @ref ww_charts_axes.
  */
 void chart_axis_set_crossing_max(lxw_chart_axis *axis);
+
+/**
+ * @brief Set the opposite axis crossing position as the axis minimum.
+ *
+ * @param axis  A pointer to a chart #lxw_chart_axis object.
+ *
+ * Set the position that the opposite axis will cross as the axis minimum.
+ * The default axis crossing position is generally the axis minimum so this
+ * function can be used to reverse the location of the axes without reversing
+ * the number sequence:
+ *
+ * @code
+ *     chart_axis_set_crossing_min(chart->x_axis);
+ *     chart_axis_set_crossing_min(chart->y_axis);
+ * @endcode
+ *
+ * **Axis types**: This function is applicable to to all axes types.
+ *                 See @ref ww_charts_axes.
+ */
+void chart_axis_set_crossing_min(lxw_chart_axis *axis);
 
 /**
  * @brief Turn off/hide an axis.
@@ -3034,13 +3324,27 @@ void chart_title_set_name_range(lxw_chart *chart, const char *sheetname,
  * chart title:
  *
  * @code
- *     lxw_chart_font font = {.bold = LXW_TRUE, .color = LXW_COLOR_BLUE};
+ *     lxw_chart_font font = {.color = LXW_COLOR_BLUE};
  *
  *     chart_title_set_name(chart, "Year End Results");
  *     chart_title_set_name_font(chart, &font);
  * @endcode
  *
  * @image html chart_title_set_name_font.png
+ *
+ * In Excel a chart title font is bold by default (as shown in the image
+ * above). To turn off bold in the font you cannot use #LXW_FALSE (0) since
+ * that is indistinguishable from an uninitialized value. Instead you should
+ * use #LXW_EXPLICIT_FALSE:
+ *
+ * @code
+ *     lxw_chart_font font = {.bold = LXW_EXPLICIT_FALSE, .color = LXW_COLOR_BLUE};
+ *
+ *     chart_title_set_name(chart, "Year End Results");
+ *     chart_title_set_name_font(chart, &font);
+ * @endcode
+ *
+ * @image html chart_title_set_name_font2.png
  *
  * For more information see @ref chart_fonts.
  */
@@ -3062,6 +3366,28 @@ void chart_title_set_name_font(lxw_chart *chart, lxw_chart_font *font);
  * @endcode
  */
 void chart_title_off(lxw_chart *chart);
+
+/**
+ * @brief Set the manual position of the chart title.
+ *
+ * @param chart  Pointer to a lxw_chart instance to be configured.
+ * @param layout A pointer to a chart #lxw_chart_layout struct.
+ *
+ * This function is used to simulate setting the manual position of the chart
+ * title. See @ref chart_layout for more information.
+ */
+void chart_title_set_layout(lxw_chart *chart, lxw_chart_layout *layout);
+
+/**
+ * @brief Allow the chart title to overlay the chart.
+ *
+ * @param chart   Pointer to a lxw_chart instance to be configured.
+ * @param overlay Turn off/on the overlay. (0/1)
+ *
+ * This option allows the chart title to overlay the chart when the
+ * `chart_title_set_layout()` function.
+ */
+void chart_title_set_overlay(lxw_chart *chart, uint8_t overlay);
 
 /**
  * @brief Set the position of the chart legend.
@@ -3100,6 +3426,17 @@ void chart_title_off(lxw_chart *chart);
  *
  */
 void chart_legend_set_position(lxw_chart *chart, uint8_t position);
+
+/**
+ * @brief Set the manual layout of the chart legend.
+ *
+ * @param chart  Pointer to a lxw_chart instance to be configured.
+ * @param layout A pointer to a chart #lxw_chart_layout struct.
+ *
+ * This function is used to simulate setting the manual position of the chart
+ * legend. See @ref chart_layout for more information.
+ */
+void chart_legend_set_layout(lxw_chart *chart, lxw_chart_layout *layout);
 
 /**
  * @brief Set the font properties for a chart legend.
@@ -3267,6 +3604,17 @@ void chart_plotarea_set_fill(lxw_chart *chart, lxw_chart_fill *fill);
  * For more information see #lxw_chart_pattern_type and @ref chart_patterns.
  */
 void chart_plotarea_set_pattern(lxw_chart *chart, lxw_chart_pattern *pattern);
+
+/**
+ * @brief Set the manual layout of the chart plotarea.
+ *
+ * @param chart  Pointer to a lxw_chart instance to be configured.
+ * @param layout A pointer to a chart #lxw_chart_layout struct.
+ *
+ * This function is used to simulate setting the manual position of the chart
+ * plotarea. See @ref chart_layout for more information.
+ */
+void chart_plotarea_set_layout(lxw_chart *chart, lxw_chart_layout *layout);
 
 /**
  * @brief Set the chart style type.

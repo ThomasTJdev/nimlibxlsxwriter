@@ -9,7 +9,7 @@ when defined(Windows):
   const dynlibChartsheet = "libxlsxwriter.dll"
 
 when defined(Linux):
-  const dynlibChartsheet = "libxlsxwriter.so"
+  const dynlibChartsheet = "libxlsxwriter.so(|.11)"
 
 when defined(MacOSX):
   const dynlibChartsheet = "libxlsxwriter.dylib"

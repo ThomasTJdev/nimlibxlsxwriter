@@ -3,7 +3,7 @@ when defined(Windows):
   const dynlibDrawing = "libxlsxwriter.dll"
 
 when defined(Linux):
-  const dynlibDrawing = "libxlsxwriter.so"
+  const dynlibDrawing = "libxlsxwriter.so(|.11)"
 
 when defined(MacOSX):
   const dynlibDrawing = "libxlsxwriter.dylib"
@@ -23,7 +23,8 @@ type
 
 type
   image_types* {.size: sizeof(cint).} = enum
-    LXW_IMAGE_UNKNOWN = 0, LXW_IMAGE_PNG, LXW_IMAGE_JPEG, LXW_IMAGE_BMP
+    LXW_IMAGE_UNKNOWN = 0, LXW_IMAGE_PNG, LXW_IMAGE_JPEG, LXW_IMAGE_BMP,
+    LXW_IMAGE_GIF
 
 
 type

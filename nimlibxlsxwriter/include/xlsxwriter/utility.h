@@ -1,7 +1,8 @@
 /*
  * libxlsxwriter
  *
- * Copyright 2014-2020, John McNamara, jmcnamara@cpan.org. See LICENSE.txt.
+ * SPDX-License-Identifier: BSD-2-Clause
+ * Copyright 2014-2026, John McNamara, jmcnamara@cpan.org.
  */
 
 /**
@@ -9,7 +10,7 @@
  *
  * @brief Utility functions for libxlsxwriter.
  *
- * <!-- Copyright 2014-2020, John McNamara, jmcnamara@cpan.org -->
+ * <!-- Copyright 2014-2026, John McNamara, jmcnamara@cpan.org -->
  *
  */
 
@@ -171,17 +172,109 @@ void lxw_rowcol_to_formula_abs(char *formula, const char *sheetname,
 
 uint32_t lxw_name_to_row(const char *row_str);
 uint16_t lxw_name_to_col(const char *col_str);
+
 uint32_t lxw_name_to_row_2(const char *row_str);
 uint16_t lxw_name_to_col_2(const char *col_str);
 
-double lxw_datetime_to_excel_date(lxw_datetime *datetime, uint8_t date_1904);
+/**
+ * @brief Converts a #lxw_datetime to an Excel datetime number.
+ *
+ * @param datetime A pointer to a #lxw_datetime struct.
+ *
+ * @return A double representing an Excel datetime.
+ *
+ * The `%lxw_datetime_to_excel_datetime()` function converts a datetime in
+ * #lxw_datetime to an Excel datetime number:
+ *
+ * @code
+ *     lxw_datetime datetime = {2013, 2, 28, 12, 0, 0.0};
+ *
+ *     double excel_datetime = lxw_datetime_to_excel_date(&datetime);
+ * @endcode
+ *
+ * See @ref working_with_dates for more details on the Excel datetime format.
+ */
+double lxw_datetime_to_excel_datetime(lxw_datetime *datetime);
+
+/**
+ * @brief Converts a #lxw_datetime to an Excel datetime number with 1900/1904
+ * epoch.
+ *
+ * This function is similar to `lxw_datetime_to_excel_datetime()` but it allows
+ * you to specify whether to use the 1900 or 1904 epoch. See also the
+ * `workbook_use_1904_epoch()` function.
+ *
+ * @param datetime A pointer to a #lxw_datetime struct.
+ * @param use_1904_epoch A flag to indicate whether to use the 1904 epoch (true)
+ *        or the 1900 epoch (false).
+ *
+ */
+double lxw_datetime_to_excel_date_with_epoch(lxw_datetime *datetime,
+                                             uint8_t use_1904_epoch);
+
+/**
+ * @brief Validate a #lxw_datetime struct.
+ *
+ * Validates a #lxw_datetime struct to ensure its fields are within acceptable
+ * ranges for Excel dates and times.
+ *
+ * The members of the #lxw_datetime struct and the range of their values are:
+ *
+ * Member   | Value
+ * -------- | -----------
+ * year     | 1900 - 9999
+ * month    | 1 - 12
+ * day      | 1 - 31
+ * hour     | 0 - 23
+ * min      | 0 - 59
+ * sec      | 0 - 59.999
+ *
+ * @param datetime A pointer to a #lxw_datetime struct.
+ *
+ * @return A #lxw_error code. Either #LXW_NO_ERROR or
+ *         #LXW_ERROR_DATETIME_VALIDATION if a field is out of range.
+ */
+lxw_error lxw_datetime_validate(lxw_datetime *datetime);
+
+/**
+ * @brief Converts a unix datetime to an Excel datetime number.
+ *
+ * @param unixtime Unix time (seconds since 1970-01-01)
+ *
+ * @return A double representing an Excel datetime.
+ *
+ * The `%lxw_unixtime_to_excel_date()` function converts a unix datetime to
+ * an Excel datetime number:
+ *
+ * @code
+ *     double excel_datetime = lxw_unixtime_to_excel_date(946684800);
+ * @endcode
+ *
+ * See @ref working_with_dates for more details.
+ */
+double lxw_unixtime_to_excel_date(int64_t unixtime);
+
+/**
+ * @brief Converts a unix datetime to an Excel datetime number with 1900/1904
+ * epoch.
+ *
+ * This function is similar to `lxw_unixtime_to_excel_date()` but it allows
+ * you to specify whether to use the 1900 or 1904 epoch. See also the
+ * `workbook_use_1904_epoch()` function.
+ *
+ * @param unixtime Unix time (seconds since 1970-01-01)
+ * @param use_1904_epoch A flag to indicate whether to use the 1904 epoch (true)
+ *        or the 1900 epoch (false).
+ *
+ */
+double lxw_unixtime_to_excel_date_with_epoch(int64_t unixtime,
+                                             uint8_t use_1904_epoch);
 
 char *lxw_strdup(const char *str);
 char *lxw_strdup_formula(const char *formula);
-
 size_t lxw_utf8_strlen(const char *str);
-
 void lxw_str_tolower(char *str);
+uint8_t lxw_str_is_empty(const char *str);
 
 /* Define a portable version of strcasecmp(). */
 #ifdef _MSC_VER
@@ -190,16 +283,19 @@ void lxw_str_tolower(char *str);
 #define lxw_strcasecmp strcasecmp
 #endif
 
-FILE *lxw_tmpfile(char *tmpdir);
+FILE *lxw_tmpfile(const char *tmpdir);
+FILE *lxw_get_filehandle(char **buf, size_t *size, const char *tmpdir);
 FILE *lxw_fopen(const char *filename, const char *mode);
 
-/* Use a user defined function to format doubles in sprintf or else a simple
- * macro (the default). */
-#ifdef USE_DOUBLE_FUNCTION
+/* Use the third party dtoa function to avoid locale issues with sprintf
+ * double formatting. Otherwise we use a simple macro that falls back to the
+ * default c-lib sprintf.
+ */
+#ifdef USE_DTOA_LIBRARY
 int lxw_sprintf_dbl(char *data, double number);
 #else
 #define lxw_sprintf_dbl(data, number) \
-        lxw_snprintf(data, LXW_ATTR_32, "%.16g", number)
+        lxw_snprintf(data, LXW_ATTR_32, "%.16G", number)
 #endif
 
 uint16_t lxw_hash_password(const char *password);

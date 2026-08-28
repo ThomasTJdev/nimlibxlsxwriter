@@ -2,7 +2,7 @@ when defined(Windows):
   const dynlibTree = "libxlsxwriter.dll"
 
 when defined(Linux):
-  const dynlibTree = "libxlsxwriter.so"
+  const dynlibTree = "libxlsxwriter.so(|.11)"
 
 when defined(MacOSX):
   const dynlibTree = "libxlsxwriter.dylib"

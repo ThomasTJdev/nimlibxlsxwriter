@@ -10,7 +10,7 @@ when defined(Windows):
   const dynlibWorksheet = "libxlsxwriter.dll"
 
 when defined(Linux):
-  const dynlibWorksheet = "libxlsxwriter.so"
+  const dynlibWorksheet = "libxlsxwriter.so(|.11)"
 
 when defined(MacOSX):
   const dynlibWorksheet = "libxlsxwriter.dylib"
@@ -89,8 +89,9 @@ type
 type
   cell_types* {.size: sizeof(cint).} = enum
     NUMBER_CELL = 1, STRING_CELL, INLINE_STRING_CELL, INLINE_RICH_STRING_CELL,
-    FORMULA_CELL, ARRAY_FORMULA_CELL, BLANK_CELL, BOOLEAN_CELL, COMMENT,
-    HYPERLINK_URL, HYPERLINK_INTERNAL, HYPERLINK_EXTERNAL
+    FORMULA_CELL, ARRAY_FORMULA_CELL, DYNAMIC_ARRAY_FORMULA_CELL, BLANK_CELL,
+    BOOLEAN_CELL, ERROR_CELL, COMMENT, HYPERLINK_URL, HYPERLINK_INTERNAL,
+    HYPERLINK_EXTERNAL
 
 
 type
@@ -158,7 +159,7 @@ type
     rbe_parent*: ptr lxw_row
     rbe_color*: cint
 
-  INNER_C_UNION_temp_489* {.bycopy.} = object {.union.}
+  INNER_C_UNION_temp_489* {.bycopy, union.} = object
     number*: cdouble
     string_id*: int32
     string*: cstring
@@ -289,8 +290,10 @@ type
     y_scale*: cdouble
     object_position*: uint8
     description*: cstring
+    decorative*: uint8
     url*: cstring
     tip*: cstring
+    cell_format*: ptr lxw_format
 
   lxw_chart_options* {.bycopy.} = object
     x_offset*: int32
@@ -298,6 +301,8 @@ type
     x_scale*: cdouble
     y_scale*: cdouble
     object_position*: uint8
+    description*: cstring
+    decorative*: uint8
 
   lxw_object_properties* {.bycopy.} = object
     x_offset*: int32
@@ -367,6 +372,9 @@ type
 
   lxw_header_footer_options* {.bycopy.} = object
     margin*: cdouble
+    image_left*: cstring
+    image_center*: cstring
+    image_right*: cstring
 
   lxw_protection* {.bycopy.} = object
     no_select_locked_cells*: uint8
